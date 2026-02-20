@@ -1,0 +1,11 @@
+flask
+flask-cors
+Flask-PyMongo
+python-dotenv
+pyjwt
+bcrypt
+scikit-learn
+pandas
+numpy<2.0.0
+shap
+xgboost
