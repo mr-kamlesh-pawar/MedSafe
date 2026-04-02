@@ -20,11 +20,26 @@ def register():
         
     hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
     
+    role = data.get('role', 'clinician')
+    
+    # If the user is a patient, create a patient record first
+    patient_record_id = None
+    if role == 'patient':
+        patients = mongo.db.patients
+        patient_record_id = patients.insert_one({
+            'name': data['username'],
+            'age': data.get('age', 30), # Default age
+            'allergies': [],
+            'medical_history': [],
+            'current_medications': []
+        }).inserted_id
+
     user_id = users.insert_one({
         'username': data['username'],
         'email': data['email'],
         'password': hashed_password,
-        'role': data.get('role', 'clinician')
+        'role': role,
+        'patient_record_id': patient_record_id
     }).inserted_id
     
     return jsonify({'message': 'User created', 'user_id': str(user_id)}), 201
@@ -41,7 +56,12 @@ def login():
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         }, SECRET_KEY, algorithm="HS256")
         
-        return jsonify({'token': token, 'role': user['role']})
+        return jsonify({
+            'token': token, 
+            'role': user['role'],
+            'user_id': str(user['_id']),
+            'patient_record_id': str(user.get('patient_record_id')) if user.get('patient_record_id') else None
+        })
         
     return jsonify({'message': 'Invalid credentials'}), 401
 

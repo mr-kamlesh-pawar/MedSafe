@@ -11,6 +11,7 @@ import { AssessTab } from '@/components/dashboard/AssessTab';
 import { PatientsTab } from '@/components/dashboard/PatientsTab';
 import { AdminStatsTab } from '@/components/dashboard/AdminStatsTab';
 import { HistoryTab, HistoryItem } from '@/components/dashboard/HistoryTab';
+import { ReportsTab } from '@/components/dashboard/ReportsTab';
 
 function Toast({ msg, type, onClose }: { msg: string; type: string; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t); }, [onClose]);
@@ -19,11 +20,10 @@ function Toast({ msg, type, onClose }: { msg: string; type: string; onClose: () 
         error: { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)', color: '#ef4444' },
         info: { bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.3)', color: '#3b82f6' },
     };
-    const c = colors[type] || colors.info;
     return (
         <div className="toast" style={{
             position: 'fixed', bottom: 24, right: 24, zIndex: 100,
-            background: '#1a1f2e', border: `1px solid ${c.border}`, color: c.color,
+            background: '#1a1f2e', border: `1px solid ${colors[type]?.border || colors.info.border}`, color: colors[type]?.color || colors.info.color,
             padding: '12px 16px', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', gap: 12, animation: 'slide-in-up 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
@@ -44,9 +44,8 @@ export default function Dashboard() {
     useEffect(() => {
         if (!isAuthenticated) router.push('/');
         else {
-            // Set default tab based on role
             if (user?.role === 'admin') setTab('stats');
-            else if (user?.role === 'patient') setTab('history');
+            else if (user?.role === 'patient') setTab('reports');
             else if (user?.role === 'pharmacist') setTab('alternatives');
         }
     }, [isAuthenticated, router, user]);
@@ -60,7 +59,7 @@ export default function Dashboard() {
             timestamp: new Date().toISOString(),
             patient_age: age,
             patient_gender: gender,
-        }, ...prev]); // Add to top
+        }, ...prev]); 
 
         if (result.risk_level === 'High' || result.risk_level === 'Critical') {
             setToast({ msg: `Review Required: ${result.risk_level} Risk Detected`, type: 'error' });
@@ -71,16 +70,20 @@ export default function Dashboard() {
 
     if (!isAuthenticated || !user) return null;
 
-    // Define Tabs per role
     let tabs = [
         { id: 'overview', label: 'Overview', icon: '⬡' },
         { id: 'assess', label: 'Risk Assessment', icon: '🧬' },
         { id: 'history', label: 'History', icon: '📋' },
-        { id: 'alternatives', label: 'Drug Alternatives', icon: '💊' },
+        { id: 'reports', label: 'Reports', icon: '📄' },
     ];
 
     if (user.role === 'clinician') {
-        tabs.splice(1, 0, { id: 'patients', label: 'Patients', icon: '👥' });
+        tabs = [
+            { id: 'overview', label: 'Overview', icon: '⬡' },
+            { id: 'assess', label: 'Risk Assessment', icon: '🧬' },
+            { id: 'patients', label: 'Patients', icon: '👥' },
+            { id: 'reports', label: 'Reports', icon: '📄' },
+        ];
     } else if (user.role === 'pharmacist') {
         tabs = [
             { id: 'alternatives', label: 'Drug Alternatives', icon: '💊' },
@@ -95,7 +98,10 @@ export default function Dashboard() {
         ];
     } else if (user.role === 'patient') {
         tabs = [
-            { id: 'history', label: 'My Health', icon: '❤️' },
+            { id: 'reports', label: 'My Health Reports', icon: '📄' },
+            { id: 'assess', label: 'Risk Assessment', icon: '🧬' },
+            { id: 'history', label: 'My History', icon: '📋' },
+            { id: 'overview', label: 'Profile Overview', icon: '⬡' },
         ];
     }
 
@@ -110,26 +116,21 @@ export default function Dashboard() {
                     <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em' }}>
                         {tabs.find(t => t.id === tab)?.label || 'Dashboard'}
                     </h1>
-                    <div style={{ display: 'flex', gap: 12 }}>
-                        {/* Header Actions if needed */}
-                    </div>
                 </div>
 
                 <div className="animate-in fade-in zoom-in-95 duration-300">
-                    {tab === 'overview' && <AdminStatsTab />} {/* Reusing AdminStats for overview for now */}
+                    {tab === 'overview' && <AdminStatsTab />}
                     {tab === 'stats' && <AdminStatsTab />}
                     {tab === 'audit' && <AdminStatsTab />}
-
                     {tab === 'assess' && <AssessTab onResult={handleNewResult} role={user.role} />}
-
                     {tab === 'patients' && <PatientsTab />}
-
                     {tab === 'history' && <HistoryTab history={history} />}
+                    {tab === 'reports' && <ReportsTab />}
 
-                    {(tab === 'alternatives' || user.role === 'pharmacist' && tab === 'alternatives') && (
+                    {(tab === 'alternatives') && (
                         <div className="glass-card" style={{ padding: 40, textAlign: 'center' }}>
-                            <h3>Drug Alternatives (Please use Risk Assessment to find context-aware alternatives)</h3>
-                            <p>Go to &#34;Risk Assessment&#34; tab &rarr; Enter Drug &rarr; View Alternatives panel.</p>
+                            <h3>Drug Alternatives</h3>
+                            <p>Go to "Risk Assessment" tab &rarr; Enter Drug &rarr; View Alternatives panel.</p>
                         </div>
                     )}
                 </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { AssessmentResult } from '@/lib/api';
+import { api, AssessmentResult } from '@/lib/api';
 import { BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer } from 'recharts';
 
 interface RiskReportProps {
@@ -120,6 +120,31 @@ export function RiskReport({ data, patientDetails, onClose }: RiskReportProps) {
 
                 {/* Actions (Hidden in Print) */}
                 <div className="no-print" style={{ position: 'absolute', top: 20, right: -60, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <button onClick={async () => {
+                        try {
+                            const res = await api.reports.generate({
+                                patient_id: "660c1d1a123b320000abcde1", // A real ID normally, but mock for this view if missing
+                                drug_id: patientDetails.drug_id,
+                                risk_level: data.risk_level,
+                                risk_score: data.risk_score,
+                                interactions: data.interactions,
+                                alternatives: []
+                            });
+                            const linkSource = `data:application/pdf;base64,${res.pdf_base64}`;
+                            const downloadLink = document.createElement("a");
+                            downloadLink.href = linkSource;
+                            downloadLink.download = `MedSafe_Report_${patientDetails.drug_id}.pdf`;
+                            downloadLink.click();
+                            alert("AI Report Generated and Downloaded Successfully!");
+                        } catch (e) {
+                            alert("Failed to generate AI report: " + String(e));
+                        }
+                    }} style={{
+                        background: '#10b981', color: 'white', border: 'none', padding: '12px', borderRadius: '50%',
+                        width: 48, height: 48, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }} title="Generate AI PDF">
+                        🤖
+                    </button>
                     <button onClick={handlePrint} style={{
                         background: '#3b82f6', color: 'white', border: 'none', padding: '12px', borderRadius: '50%',
                         width: 48, height: 48, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center'

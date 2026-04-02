@@ -22,6 +22,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export interface LoginResponse {
     token: string;
     role: string;
+    user_id: string;
+    patient_record_id?: string;
 }
 
 export interface AssessmentResult {
@@ -30,11 +32,13 @@ export interface AssessmentResult {
     interactions: string[];
     shap_values: { feature: string; value: number; contribution?: string }[];
     recommendation?: string;
+    ai_features?: any;
 }
 
 export interface Alternative {
     name: string;
     risk_reduction: string;
+    safety_score?: number;
 }
 
 export const api = {
@@ -72,6 +76,12 @@ export const api = {
     },
     admin: {
         stats: () => request<{ metrics: Record<string, number>; logs: Record<string, unknown>[] }>('/api/admin/stats'),
+    },
+    reports: {
+        generate: (data: any) => request<{ message: string, report_id: string, pdf_base64: string }>('/api/reports/generate', { method: 'POST', body: JSON.stringify(data) }),
+        share: (reportId: string, doctorId: string) => request<{ message: string }>('/api/reports/share', { method: 'POST', body: JSON.stringify({ report_id: reportId, doctor_id: doctorId }) }),
+        patientReports: (patientId: string) => request<any[]>(`/api/reports/patient/${patientId}`),
+        doctors: () => request<any[]>('/api/reports/doctors'),
     },
     health: () =>
         request<{ message: string }>('/'),

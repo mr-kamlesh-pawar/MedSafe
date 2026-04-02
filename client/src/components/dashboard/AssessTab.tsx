@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { api, AssessmentResult, Alternative } from '@/lib/api';
 import {
-    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
+    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+    RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 import { RiskReport } from './RiskReport';
 
@@ -54,12 +55,15 @@ export function AssessTab({ onResult, role }: { onResult: (r: AssessmentResult, 
                 creatinine: form.creatinine ? parseFloat(form.creatinine) : undefined,
                 current_medications: medications,
                 allergies: form.allergies.split(',').map(s => s.trim()).filter(Boolean),
+                medical_history: form.medical_history.split('\n').filter(Boolean),
             }, form.drug_id);
 
             setResult(res);
             onResult(res, form.drug_id, parseInt(form.age || '0'), form.gender);
 
-            if (res.risk_level !== 'Low') {
+            if (res.ai_features?.alternative_pharmacotherapy) {
+                setAlternatives(res.ai_features.alternative_pharmacotherapy);
+            } else if (res.risk_level !== 'Low') {
                 try {
                     const altRes = await api.alternatives(form.drug_id);
                     setAlternatives(altRes.alternatives);
@@ -131,99 +135,220 @@ export function AssessTab({ onResult, role }: { onResult: (r: AssessmentResult, 
                     )}
                 </div>
 
-                <div style={{ marginBottom: 20 }}>
+                <div style={{ marginBottom: 16 }}>
                     <label className="medsafe-label">Current Medications (Comma separated)</label>
                     <input className="medsafe-input" value={form.current_medications} onChange={e => setForm({ ...form, current_medications: e.target.value })} placeholder="e.g. Aspirin, Lisinopril" />
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                    <label className="medsafe-label">Detailed Medical History</label>
+                    <textarea 
+                        className="medsafe-input" 
+                        value={form.medical_history} 
+                        onChange={e => setForm({ ...form, medical_history: e.target.value })} 
+                        placeholder="Paste or write detailed medical history here for deeper AI analysis..."
+                        style={{ minHeight: 80, resize: 'vertical' }}
+                    />
                 </div>
 
                 <button className="btn-primary" style={{ width: '100%', padding: '12px', fontSize: 16 }} disabled={loading}>
                     {loading ? (
                         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                            <span className="spinner"></span> Analyzing...
+                            <span className="spinner"></span> Analyzing AI Telemetry...
                         </span>
-                    ) : 'Run Risk Assessment'}
+                    ) : 'Run Deep AI Risk Assessment'}
                 </button>
             </form>
 
             {/* Results Panel */}
             {result && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'slide-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'slide-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1)', paddingBottom: 64 }}>
 
-                    {/* Main Risk Card */}
-                    <div className="glass-card" style={{
-                        padding: 24, borderRadius: 12,
-                        border: `1px solid ${getRiskColor(result.risk_level)}`,
-                        background: `linear-gradient(145deg, ${getRiskColor(result.risk_level)}15, rgba(10,14,26,0.8))`
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div>
-                                <div style={{ fontSize: 13, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.05em', marginBottom: 4 }}>Risk Assessment Result</div>
-                                <div style={{ fontSize: 32, fontWeight: 800, color: getRiskColor(result.risk_level), display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    {getRiskIcon(result.risk_level)} {result.risk_level} Risk
+                    {/* AI Clinical synthesis header */}
+                    {result.ai_features?.clinical_narrative && (
+                        <div className="glass-card" style={{ padding: 24, borderRadius: 12, border: '1px solid rgba(59,130,246,0.3)', background: 'linear-gradient(90deg, rgba(59,130,246,0.05), transparent)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                <span style={{ fontSize: 24 }}>🧠</span>
+                                <h3 style={{ margin: 0, color: '#60a5fa', fontWeight: 600 }}>Groq AI Clinical Synthesis</h3>
+                            </div>
+                            <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6, color: 'rgba(255,255,255,0.9)' }}>
+                                {result.ai_features.clinical_narrative}
+                            </p>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                        {/* Main Risk Card */}
+                        <div className="glass-card" style={{
+                            padding: 32, borderRadius: 12, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                            border: `1px solid ${getRiskColor(result.risk_level)}`,
+                            background: `linear-gradient(145deg, ${getRiskColor(result.risk_level)}15, rgba(10,14,26,0.8))`
+                        }}>
+                            <div style={{ fontSize: 14, textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', letterSpacing: '0.05em', marginBottom: 8 }}>Computed Risk Verdict</div>
+                            <div style={{ fontSize: 48, fontWeight: 800, color: getRiskColor(result.risk_level), display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+                                {getRiskIcon(result.risk_level)} {result.risk_level}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                <div>
+                                    <div style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>{Math.round(result.risk_score * 100)}%</div>
+                                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Algorithmic Confidence</div>
                                 </div>
+                                {result.ai_features?.readmission_risk && (
+                                    <div style={{ paddingLeft: 16, borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <div style={{ fontSize: 32, fontWeight: 700, color: '#f87171' }}>{result.ai_features.readmission_risk}</div>
+                                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Readmission Probability</div>
+                                    </div>
+                                )}
                             </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 36, fontWeight: 700, color: '#fff' }}>{Math.round(result.risk_score * 100)}%</div>
-                                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Confidence Score</div>
-                            </div>
+                            {result.recommendation && (
+                                <div style={{ marginTop: 24, padding: 16, background: 'rgba(0,0,0,0.2)', borderRadius: 8, borderLeft: `4px solid ${getRiskColor(result.risk_level)}` }}>
+                                    <strong style={{ color: '#fff', display: 'block', marginBottom: 6 }}>Primary Directive:</strong>
+                                    <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>{result.recommendation}</span>
+                                </div>
+                            )}
                         </div>
 
-                        {result.recommendation && (
-                            <div style={{ marginTop: 16, padding: 12, background: 'rgba(0,0,0,0.2)', borderRadius: 8, borderLeft: `4px solid ${getRiskColor(result.risk_level)}` }}>
-                                <strong style={{ color: '#fff', display: 'block', marginBottom: 4 }}>Recommendation:</strong>
-                                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14 }}>{result.recommendation}</span>
+                        {/* Radar Chart side effect heatmap */}
+                        {result.ai_features?.side_effect_heatmap && (
+                            <div className="glass-card" style={{ padding: 24, borderRadius: 12 }}>
+                                <h4 style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Predicted Side Effect Topology</h4>
+                                <div style={{ height: 250, width: '100%' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <RadarChart data={Object.entries(result.ai_features.side_effect_heatmap).map(([k, v]) => ({ subject: k, A: v, fullMark: 100 }))}>
+                                            <PolarGrid stroke="rgba(255,255,255,0.1)" />
+                                            <PolarAngleAxis dataKey="subject" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 11 }} />
+                                            <Radar name="Probability %" dataKey="A" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.4} />
+                                            <Tooltip contentStyle={{ background: '#1e293b', border: 'none', borderRadius: 8 }} />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
                             </div>
                         )}
                     </div>
 
-                    <button className="btn-secondary" onClick={() => setShowReport(true)} style={{ width: '100%', padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                        <span>📄</span> Generate Clinical Report
-                    </button>
+                    {/* AI Analytics Matrix Block */}
+                    {result.ai_features && (
+                        <>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12 }}>
+                                    <div style={{ fontSize: 12, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Pharmacogenomics</div>
+                                    <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{result.ai_features.pharmacogenomics_insight}</div>
+                                </div>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12 }}>
+                                    <div style={{ fontSize: 12, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Lab Predictor</div>
+                                    <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{result.ai_features.lab_value_predictor}</div>
+                                </div>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12 }}>
+                                    <div style={{ fontSize: 12, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Vitals Monitor</div>
+                                    <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{result.ai_features.vital_sign_monitor}</div>
+                                </div>
+                            </div>
 
-                    {/* SHAP Chart */}
-                    <div className="glass-card" style={{ padding: 24, borderRadius: 12 }}>
-                        <h4 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>Feature Contribution (SHAP)</h4>
-                        <div style={{ height: 200, width: '100%' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={result.shap_values} layout="vertical" margin={{ left: 40, right: 30 }}>
-                                    <XAxis type="number" hide />
-                                    <YAxis type="category" dataKey="feature" width={100} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                                    <Tooltip
-                                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                        contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                                    />
-                                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
-                                        {result.shap_values.map((s, i) => (
-                                            <Cell key={i} fill={s.value > 0 ? '#ef4444' : '#10b981'} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12, borderLeft: '4px solid #f43f5e' }}>
+                                    <div style={{ fontSize: 12, color: '#f43f5e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>DDI Deep Scan</div>
+                                    <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{result.ai_features.ddi_analysis}</div>
+                                </div>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12, borderLeft: '4px solid #10b981' }}>
+                                    <div style={{ fontSize: 12, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Contraindications</div>
+                                    <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{result.ai_features.contraindication_filter}</div>
+                                </div>
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12 }}>
+                                    <div style={{ fontSize: 12, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Pediatric / Geriatric</div>
+                                    <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{result.ai_features.pediatric_geriatric_adjustment}</div>
+                                </div>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12 }}>
+                                    <div style={{ fontSize: 12, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Pregnancy / Lactation</div>
+                                    <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{result.ai_features.pregnancy_lactation}</div>
+                                </div>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12 }}>
+                                    <div style={{ fontSize: 12, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Titration Schedule</div>
+                                    <div style={{ fontSize: 14, color: '#fff', lineHeight: 1.5 }}>{result.ai_features.titration_schedule}</div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 16 }}>
+                         {/* SHAP Chart */}
+                        <div className="glass-card" style={{ flex: 1, padding: 24, borderRadius: 12 }}>
+                            <h4 style={{ marginBottom: 16, fontSize: 16, fontWeight: 600 }}>Feature Contribution (SHAP)</h4>
+                            <div style={{ height: 200, width: '100%' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={result.shap_values} layout="vertical" margin={{ left: 40, right: 30 }}>
+                                        <XAxis type="number" hide />
+                                        <YAxis type="category" dataKey="feature" width={100} tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8 }} />
+                                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
+                                            {result.shap_values.map((s, i) => (
+                                                <Cell key={i} fill={s.value > 0 ? '#ef4444' : '#10b981'} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, background: '#ef4444', borderRadius: '50%' }}></span> Increases Risk</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 8, height: 8, background: '#10b981', borderRadius: '50%' }}></span> Decreases Risk</div>
-                        </div>
+                        {result.ai_features && (
+                            <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12, flex: 1 }}>
+                                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Adherence Risk</div>
+                                    <div style={{ fontSize: 14, color: '#fff' }}>{result.ai_features.adherence_risk}</div>
+                                </div>
+                                <div className="glass-card" style={{ padding: 20, borderRadius: 12, flex: 1 }}>
+                                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Cost/Benefit Ratio</div>
+                                    <div style={{ fontSize: 14, color: '#fff' }}>{result.ai_features.cost_benefit}</div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Alternatives */}
                     {alternatives.length > 0 && (
                         <div className="glass-card" style={{ padding: 24, borderRadius: 12 }}>
-                            <h4 style={{ marginBottom: 12 }}>Safer Alternatives</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                                <span style={{ fontSize: 20 }}>💡</span>
+                                <h4 style={{ margin: 0, fontWeight: 700 }}>AI Predicted Safer Alternatives</h4>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 {alternatives.map((a, i) => (
                                     <div key={i} style={{
-                                        padding: 12, background: 'rgba(16,185,129,0.05)',
-                                        border: '1px solid rgba(16,185,129,0.2)', borderRadius: 8,
+                                        padding: 16, background: 'rgba(16,185,129,0.05)',
+                                        border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12,
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                     }}>
-                                        <span style={{ fontWeight: 600, color: '#10b981' }}>{a.name}</span>
-                                        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>{a.risk_reduction}</span>
+                                        <div>
+                                            <span style={{ fontWeight: 700, color: '#10b981', display: 'block', fontSize: 16 }}>{a.name}</span>
+                                            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 6, display: 'block', maxWidth: 600, lineHeight: 1.5 }}>{a.risk_reduction}</span>
+                                        </div>
+                                        {a.safety_score && (
+                                            <div style={{ textAlign: 'right' }}>
+                                                <div style={{ fontSize: 28, fontWeight: 800, color: '#34d399' }}>{a.safety_score}%</div>
+                                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Predicted Safety</div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         </div>
                     )}
+                    
+                    {result.ai_features?.literature_evidence && (
+                         <div className="glass-card" style={{ padding: 24, borderRadius: 12, borderLeft: '4px solid #6366f1' }}>
+                             <h4 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600, color: '#818cf8', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                 📚 PubMed Literature Reference
+                             </h4>
+                             <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.8)', fontStyle: 'italic', lineHeight: 1.6 }}>"{result.ai_features.literature_evidence}"</p>
+                         </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 16 }}>
+                        <button className="btn-secondary" onClick={() => setShowReport(true)} style={{ flex: 1, padding: 16, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                            <span>📄</span> Generate Full Clinical PDF Report
+                        </button>
+                    </div>
 
                     {/* Override Section (Clinician Only) */}
                     {result.risk_level !== 'Low' && role === 'clinician' && (

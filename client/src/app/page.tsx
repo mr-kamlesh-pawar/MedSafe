@@ -21,7 +21,7 @@ export default function LoginPage() {
     try {
       if (mode === 'login') {
         const res = await api.auth.login(form.email, form.password);
-        authLogin(res.token, res.role, form.email);
+        authLogin(res.token, res.role, form.email, res.user_id, res.patient_record_id);
         router.push('/dashboard');
       } else {
         await api.auth.register(form.username, form.email, form.password, form.role);
@@ -251,6 +251,7 @@ export default function LoginPage() {
                   style={{ ...inputStyle, appearance: 'none', cursor: 'pointer' }}
                 >
                   <option value="clinician">Clinician</option>
+                  <option value="patient">Patient</option>
                   <option value="pharmacist">Pharmacist</option>
                   <option value="admin">Administrator</option>
                 </select>

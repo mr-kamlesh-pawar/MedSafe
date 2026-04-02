@@ -11,11 +11,14 @@ interface Patient {
     created_at: string;
 }
 
+import { ReportsTab } from './ReportsTab';
+
 export function PatientsTab() {
     const [patients, setPatients] = useState<Patient[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ name: '', age: '', gender: 'Male', allergies: '', medical_history: '', current_medications: '' });
+    const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
     const loadPatients = async () => {
         setLoading(true);
@@ -43,6 +46,25 @@ export function PatientsTab() {
             loadPatients();
         } catch (e) { alert('Failed to create patient'); }
     };
+
+    if (selectedPatient) {
+        return (
+            <div className="animate-in fade-in zoom-in-95 duration-200">
+                <button className="btn-secondary" onClick={() => setSelectedPatient(null)} style={{ marginBottom: 20 }}>&larr; Back to Directory</button>
+                <div className="glass-card" style={{ padding: 30, borderRadius: 16, marginBottom: 24 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                        <h2 style={{ margin: 0, fontSize: 24 }}>{selectedPatient.name}</h2>
+                        <span style={{ color: 'var(--text-muted)' }}>ID: {selectedPatient._id}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 24 }}>
+                        <div><strong>Age:</strong> {selectedPatient.age}</div>
+                        <div><strong>Gender:</strong> {selectedPatient.gender}</div>
+                    </div>
+                </div>
+                <ReportsTab patientId={selectedPatient._id} />
+            </div>
+        );
+    }
 
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -77,10 +99,10 @@ export function PatientsTab() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <th style={{ textAlign: 'left', padding: '16px 24px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Name</th>
-                            <th style={{ textAlign: 'left', padding: '16px 24px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Age</th>
-                            <th style={{ textAlign: 'left', padding: '16px 24px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Gender</th>
-                            <th style={{ textAlign: 'right', padding: '16px 24px', color: 'var(--text-muted)', fontSize: 13, fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>ID</th>
+                            <th style={{ textAlign: 'left', padding: '16px 24px', color: 'var(--text-muted)' }}>Name</th>
+                            <th style={{ textAlign: 'left', padding: '16px 24px', color: 'var(--text-muted)' }}>Age</th>
+                            <th style={{ textAlign: 'left', padding: '16px 24px', color: 'var(--text-muted)' }}>Gender</th>
+                            <th style={{ textAlign: 'right', padding: '16px 24px', color: 'var(--text-muted)' }}>ID</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -92,7 +114,7 @@ export function PatientsTab() {
                             <tr><td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>No patients found. Create one to get started.</td></tr>
                         ) : (
                             patients.map(p => (
-                                <tr key={p._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' }} className="hover:bg-white/5">
+                                <tr key={p._id} onClick={() => setSelectedPatient(p)} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s', cursor: 'pointer' }} className="hover:bg-white/5">
                                     <td style={{ padding: '16px 24px', fontWeight: 600, color: '#fff' }}>{p.name}</td>
                                     <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>{p.age}</td>
                                     <td style={{ padding: '16px 24px', color: 'var(--text-secondary)' }}>{p.gender}</td>

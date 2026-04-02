@@ -13,9 +13,7 @@ dist/
 .env.*.local
 .env.production
 
-# Allow the project's own env files (no real secrets inside)
-!client/.env.local
-!server/.env
+# Ensure .env files are NOT pushed (secrets might be inside)
 
 # ── Python / Flask ────────────────────────────────────────────
 __pycache__/
